@@ -1,0 +1,72 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "arviz-mcp"
+version = "0.1.0"
+description = "MCP server for exploring Bayesian model outputs with ArviZ"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+    { name = "Spencer Boucher", email = "anthropic@spencerboucher.com" },
+]
+keywords = ["mcp", "arviz", "bayesian", "mcmc", "inferencedata", "diagnostics"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "mcp>=1.0",
+    # The tools use the ArviZ 1.0 API (e.g. az.hdi(..., prob=...).ds,
+    # az.summary(..., ci_prob=...)), which requires Python >=3.12.
+    "arviz>=1.0",
+    "matplotlib",
+    "numpy",
+    "scipy",
+    "xarray",
+    "netcdf4>=1.7.4",
+]
+
+[project.urls]
+# TODO: confirm the GitHub owner/repo before publishing.
+Homepage = "https://github.com/spencerboucher/arviz-mcp"
+Repository = "https://github.com/spencerboucher/arviz-mcp"
+Issues = "https://github.com/spencerboucher/arviz-mcp/issues"
+
+[project.scripts]
+arviz-mcp = "arviz_mcp.server:main"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+    "mypy",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+# E/F: pyflakes + pycodestyle, I: isort, UP: pyupgrade, B: bugbear.
+# E501 (line length) is owned by the formatter, not the linter.
+# B905 (zip strict=) is noise for the equal-length paired arrays in the chart builders.
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501", "B905"]
+
+[tool.mypy]
+python_version = "3.12"
+# Pragmatic baseline: third-party scientific libs are largely untyped.
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
