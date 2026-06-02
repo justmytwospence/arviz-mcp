@@ -100,7 +100,7 @@ def register(mcp: FastMCP) -> None:
                 "std": lambda: var_data.std(dim=reduce_dims).values,
             }
             if params.stat not in stat_funcs:
-                return f"Error: Unknown stat '{params.stat}'. Supported: mean, median, std."
+                raise ValueError(f"Unknown stat '{params.stat}'. Supported: mean, median, std.")
             values = stat_funcs[params.stat]()
             result["stat"] = params.stat
             result["values"] = values.tolist() if isinstance(values, np.ndarray) else float(values)
