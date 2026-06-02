@@ -14,7 +14,7 @@ non-statistician can interrogate a fitted model in conversation.
 ## Installation
 
 ```bash
-git clone https://github.com/spencerboucher/arviz-mcp.git
+git clone https://github.com/justmytwospence/arviz-mcp.git
 cd arviz-mcp
 uv sync
 ```
