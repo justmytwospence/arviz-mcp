@@ -6,10 +6,15 @@ import logging
 from typing import TYPE_CHECKING
 
 import arviz as az
-import numpy as np
 from mcp.server.fastmcp import Context
 from pydantic import BaseModel, Field
 
+from arviz_mcp.diagnostics_core import (
+    BFMI_THRESHOLD,
+    bad_rhat,
+    bfmi_values,
+    low_ess,
+)
 from arviz_mcp.models import get_group_names
 from arviz_mcp.utils import (
     READ_ONLY,
@@ -150,16 +155,11 @@ def register(mcp: FastMCP) -> None:
             # -- E-BFMI --
             if "energy" in stats.data_vars:
                 try:
-                    bfmi = az.bfmi(dt)
-                    bfmi_vals = bfmi.values if hasattr(bfmi, "values") else np.array(bfmi)
+                    values = bfmi_values(dt)
                     low_bfmi = [
-                        {"chain": i, "bfmi": round(float(v), 4)}
-                        for i, v in enumerate(bfmi_vals.flatten())
-                        if v < 0.3
+                        {"chain": i, "bfmi": v} for i, v in enumerate(values) if v < BFMI_THRESHOLD
                     ]
-                    report["energy_bfmi"] = {
-                        "values": [round(float(v), 4) for v in bfmi_vals.flatten()],
-                    }
+                    report["energy_bfmi"] = {"values": values}
                     if low_bfmi:
                         report["warnings"].append(
                             f"Low E-BFMI detected in {len(low_bfmi)} chain(s): "
@@ -184,28 +184,17 @@ def register(mcp: FastMCP) -> None:
         # -- R-hat --
         if "posterior" in groups:
             try:
-                rhat = az.rhat(dt, var_names=params.var_names)
-                bad_rhat = {}
-                for var_name in rhat.data_vars:
-                    vals = rhat[var_name].values
-                    if vals.ndim == 0:
-                        if float(vals) > 1.01:
-                            bad_rhat[var_name] = round(float(vals), 4)
-                    else:
-                        max_val = float(np.nanmax(vals))
-                        if max_val > 1.01:
-                            bad_rhat[var_name] = round(max_val, 4)
-
-                report["rhat"] = {"problematic": bad_rhat}
-                if bad_rhat:
+                bad_rhat_map = bad_rhat(dt, params.var_names)
+                report["rhat"] = {"problematic": bad_rhat_map}
+                if bad_rhat_map:
                     report["warnings"].append(
-                        f"R-hat > 1.01 for {list(bad_rhat.keys())}. "
+                        f"R-hat > 1.01 for {list(bad_rhat_map.keys())}. "
                         "Chains have not converged. Run longer or "
                         "check for multimodality."
                     )
                     report["rhat"]["interpretation"] = (
                         f"The independent estimation runs disagree on the "
-                        f"values of {list(bad_rhat.keys())}. This means "
+                        f"values of {list(bad_rhat_map.keys())}. This means "
                         f"those estimates have not settled and should not "
                         f"be trusted yet."
                     )
@@ -222,20 +211,8 @@ def register(mcp: FastMCP) -> None:
         # -- ESS --
         if "posterior" in groups:
             try:
-                ess_bulk = az.ess(dt, var_names=params.var_names, method="bulk")
-                ess_tail = az.ess(dt, var_names=params.var_names, method="tail")
-
-                low_bulk = {}
-                low_tail = {}
-                for var_name in ess_bulk.data_vars:
-                    bulk_vals = ess_bulk[var_name].values
-                    tail_vals = ess_tail[var_name].values
-                    min_bulk = float(np.nanmin(bulk_vals))
-                    min_tail = float(np.nanmin(tail_vals))
-                    if min_bulk < 400:
-                        low_bulk[var_name] = round(min_bulk, 0)
-                    if min_tail < 400:
-                        low_tail[var_name] = round(min_tail, 0)
+                low_bulk = low_ess(dt, params.var_names, "bulk")
+                low_tail = low_ess(dt, params.var_names, "tail")
 
                 report["ess"] = {
                     "low_bulk": low_bulk,

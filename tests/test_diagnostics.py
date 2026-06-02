@@ -83,3 +83,35 @@ def test_summary_runs(ctx_with_models):
     assert "tau" in df.index
     assert "mean" in df.columns
     assert "r_hat" in df.columns
+
+
+def test_diagnostics_tool_reports_all_checks(ctx_with_models, get_tool):
+    """Invoke the real diagnostics tool and assert E-BFMI actually computes.
+
+    Regression: az.bfmi returns a DataTree in ArviZ 1.0, so the per-chain values
+    must be pulled from sample_stats/energy -- not a (nonexistent) .values array.
+    """
+    import json
+
+    out = json.loads(get_tool("diagnostics")(DiagnosticsInput(model="centered"), ctx_with_models))
+    assert out["energy_bfmi"].get("error") is None
+    assert len(out["energy_bfmi"]["values"]) == 4  # centered_eight has 4 chains
+    for check in ("divergences", "energy_bfmi", "rhat", "ess"):
+        assert check in out["checks"]
+    assert out["assessment"]["level"] in {"healthy", "has warnings", "problematic"}
+
+
+def test_bfmi_values(centered_eight):
+    from arviz_mcp.diagnostics_core import bfmi_values
+
+    vals = bfmi_values(centered_eight)
+    assert len(vals) == 4
+    assert all(isinstance(v, float) for v in vals)
+
+
+def test_diagnostic_core_helpers(centered_eight):
+    """centered_eight is the canonical problematic model: R-hat and ESS both flag."""
+    from arviz_mcp.diagnostics_core import bad_rhat, low_ess
+
+    assert bad_rhat(centered_eight)  # non-empty dict of problem variables
+    assert low_ess(centered_eight)

@@ -10,6 +10,7 @@ import numpy as np
 from mcp.server.fastmcp import Context
 from pydantic import BaseModel, Field
 
+from arviz_mcp.diagnostics_core import BFMI_THRESHOLD, bad_rhat, bfmi_values, low_ess
 from arviz_mcp.models import get_group_names
 from arviz_mcp.utils import (
     READ_ONLY,
@@ -51,9 +52,7 @@ def _run_trust_assessment(dt, groups: list[str]) -> dict:
 
         if "energy" in stats.data_vars:
             try:
-                bfmi = az.bfmi(dt)
-                bfmi_vals = bfmi.values if hasattr(bfmi, "values") else np.array(bfmi)
-                low_count = int(np.sum(bfmi_vals.flatten() < 0.3))
+                low_count = sum(1 for v in bfmi_values(dt) if v < BFMI_THRESHOLD)
                 if low_count > 0:
                     warnings.append(f"Low energy diagnostic in {low_count} chain(s)")
             except Exception as e:
@@ -62,13 +61,7 @@ def _run_trust_assessment(dt, groups: list[str]) -> dict:
 
     if "posterior" in groups:
         try:
-            rhat = az.rhat(dt)
-            bad = []
-            for var_name in rhat.data_vars:
-                vals = rhat[var_name].values
-                max_val = float(np.nanmax(vals)) if vals.ndim > 0 else float(vals)
-                if max_val > 1.01:
-                    bad.append(var_name)
+            bad = list(bad_rhat(dt).keys())
             if bad:
                 warnings.append(f"Convergence issues for {bad}")
         except Exception as e:
@@ -76,11 +69,7 @@ def _run_trust_assessment(dt, groups: list[str]) -> dict:
             could_not_check.append("R-hat")
 
         try:
-            ess_bulk = az.ess(dt, method="bulk")
-            low = []
-            for var_name in ess_bulk.data_vars:
-                if float(np.nanmin(ess_bulk[var_name].values)) < 400:
-                    low.append(var_name)
+            low = list(low_ess(dt).keys())
             if low:
                 warnings.append(f"Low effective samples for {low}")
         except Exception as e:
