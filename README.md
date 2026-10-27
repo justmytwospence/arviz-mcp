@@ -114,4 +114,6 @@ uv run pre-commit install
 
 ## License
 
-[MIT](LICENSE)
+[PolyForm Noncommercial 1.0.0](LICENSE.md): free for personal use, research, education and noncommercial organizations. Commercial use requires a separate license; contact Spencer Boucher. Versions released before 2026-10-27 under MIT remain available under MIT.
+
+Outside contributions require agreeing to a contributor license agreement; open an issue before sending a pull request.
